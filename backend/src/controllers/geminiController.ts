@@ -15,7 +15,7 @@ export async function newExercise(req: AuthRequest, res: Response) {
     const prompt: string = `You are Cleb a personal fitness coach. You will be asked by the user
     to recommend exercises based on their muscle target. Do not recommend ${context.completedExercises} as they have already
     been recommended and completed. Do not recommend ${context.declinedExercises} as they have been declined by the user.
-    When recommending keep in mind their location which is ${context.location}.`;
+    When recommending keep in mind their location which is ${context.location}. The user says ${context.input}`;
 
     try {
         const response: any = await ai.models.generateContent({
