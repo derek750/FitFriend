@@ -7,14 +7,21 @@ export default function LoginPage() {
     window.location.href = "http://localhost:3000/google/login";
   };
 
-
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-4 relative overflow-hidden">
+    <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@300;400;600;700&display=swap');
         
+        body, html {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+        }
+
         * {
           font-family: 'Work Sans', sans-serif;
+          box-sizing: border-box;
         }
         
         .hero-title {
@@ -70,101 +77,239 @@ export default function LoginPage() {
           animation: pulse 3s ease-in-out infinite;
         }
         
+        .login-page-container {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: #09090b;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          overflow: hidden;
+        }
+        
         .orb {
           position: absolute;
           border-radius: 50%;
-          filter: blur(80px);
+          filter: blur(100px);
           opacity: 0.3;
           animation: float 20s ease-in-out infinite;
           pointer-events: none;
         }
         
         .orb-1 {
-          width: 300px;
-          height: 300px;
+          width: 400px;
+          height: 400px;
           background: #00ff88;
-          top: -100px;
-          left: -100px;
+          top: -150px;
+          left: -150px;
           animation-delay: 0s;
         }
         
         .orb-2 {
-          width: 250px;
-          height: 250px;
+          width: 350px;
+          height: 350px;
           background: #00d4ff;
-          bottom: -80px;
-          right: -80px;
+          bottom: -120px;
+          right: -120px;
           animation-delay: 5s;
         }
         
         .orb-3 {
-          width: 200px;
-          height: 200px;
+          width: 300px;
+          height: 300px;
           background: #00ff88;
           top: 50%;
-          right: -100px;
+          right: -150px;
           animation-delay: 10s;
+        }
+
+        .login-content {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 480px;
+        }
+
+        .logo-container {
+          text-align: center;
+          margin-bottom: 3rem;
+        }
+
+        .logo-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100px;
+          height: 100px;
+          background: linear-gradient(135deg, #10b981, #06b6d4);
+          border-radius: 24px;
+          margin-bottom: 2rem;
+        }
+
+        .logo-title {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+
+        .logo-subtitle {
+          color: #a1a1aa;
+          font-size: 1.25rem;
+        }
+
+        .login-card {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 24px;
+          padding: 3rem;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+          text-align: center;
+          margin-bottom: 2rem;
+        }
+
+        .card-title {
+          font-size: 2.5rem;
+          font-weight: 700;
+          margin-bottom: 0.75rem;
+          color: white;
+        }
+
+        .card-subtitle {
+          color: #a1a1aa;
+          font-size: 1.125rem;
+        }
+
+        .login-button {
+          width: 100%;
+          padding: 1.25rem;
+          background: linear-gradient(135deg, #10b981, #06b6d4);
+          border: none;
+          border-radius: 16px;
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: white;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+
+        .login-button:hover {
+          box-shadow: 0 20px 60px rgba(16, 185, 129, 0.4);
+          transform: scale(1.05);
+        }
+
+        .login-button:active {
+          transform: scale(0.95);
+        }
+
+        .footer-text {
+          text-align: center;
+          font-size: 0.875rem;
+          color: #71717a;
+          margin-top: 2rem;
+        }
+
+        .footer-link {
+          color: #10b981;
+          text-decoration: none;
+          transition: color 0.3s ease;
+        }
+
+        .footer-link:hover {
+          color: #06b6d4;
+        }
+
+        .signup-text {
+          text-align: center;
+          margin-top: 2rem;
+          color: #a1a1aa;
+          font-size: 1rem;
+        }
+
+        .signup-link {
+          color: #10b981;
+          font-weight: 600;
+          text-decoration: none;
+          transition: color 0.3s ease;
+        }
+
+        .signup-link:hover {
+          color: #06b6d4;
+        }
+
+        @media (max-width: 768px) {
+          .logo-icon {
+            width: 80px;
+            height: 80px;
+          }
+
+          .logo-title {
+            font-size: 3rem;
+          }
+
+          .card-title {
+            font-size: 2rem;
+          }
+
+          .login-card {
+            padding: 2rem;
+          }
         }
       `}</style>
 
-      {/* Animated Background Orbs */}
-      <div className="orb orb-1"></div>
-      <div className="orb orb-2"></div>
-      <div className="orb orb-3"></div>
+      <div className="login-page-container">
+        {/* Animated Background Orbs */}
+        <div className="orb orb-1"></div>
+        <div className="orb orb-2"></div>
+        <div className="orb orb-3"></div>
 
-      {/* Login Container */}
-      <div className="relative z-10 w-full max-w-md animate-fade-in">
-        {/* Logo Section */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-3xl mb-6 glow-effect">
-            <Dumbbell className="w-10 h-10 text-white" />
+        {/* Login Content */}
+        <div className="login-content animate-fade-in">
+          {/* Logo Section */}
+          <div className="logo-container">
+            <div className="logo-icon glow-effect">
+              <Dumbbell size={48} color="white" />
+            </div>
+            <h1 className="hero-title logo-title">
+              <span className="gradient-text">FITFRIEND</span>
+            </h1>
+            <p className="logo-subtitle">Your AI Workout Partner</p>
           </div>
-          <h1 className="hero-title text-5xl md:text-6xl mb-4">
-            <span className="gradient-text">FITFRIEND</span>
-          </h1>
-          <p className="text-zinc-400 text-lg">
-            Your AI Workout Partner
-          </p>
-        </div>
 
-        {/* Login Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold mb-3">Welcome Back</h2>
-            <p className="text-zinc-400">
-              Ready to crush your fitness goals?
+          {/* Login Card */}
+          <div className="login-card">
+            <div className="card-header">
+              <h2 className="card-title">Welcome Back</h2>
+              <p className="card-subtitle">Ready to crush your fitness goals?</p>
+            </div>
+
+            {/* Login Button */}
+            <button onClick={handleGoogleLogin} className="login-button glow-effect">
+              Login
+            </button>
+
+            {/* Footer Text */}
+            <p className="footer-text">
+              By logging in, you agree to our{' '}
+              <a href="#" className="footer-link">Terms of Service</a>
+              {' '}and{' '}
+              <a href="#" className="footer-link">Privacy Policy</a>
             </p>
           </div>
 
-          {/* Login Button */}
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full px-8 py-5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl text-lg font-bold hover:shadow-2xl hover:shadow-emerald-500/50 transition-all duration-300 transform hover:scale-105 active:scale-95"
-          >
-            Login
-          </button>
-
-          {/* Optional Footer Text */}
-          <p className="text-center text-sm text-zinc-500 mt-8">
-            By logging in, you agree to our{' '}
-            <a href="#" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-              Terms of Service
-            </a>
-            {' '}and{' '}
-            <a href="#" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-              Privacy Policy
-            </a>
+          {/* Sign Up Link */}
+          <p className="signup-text">
+            Don't have an account?{' '}
+            <a href="#" className="signup-link">Sign Up</a>
           </p>
         </div>
-
-        {/* Optional Sign Up Link */}
-        <p className="text-center text-zinc-400 mt-8">
-          Don't have an account?{' '}
-          <a href="#" className="text-emerald-400 font-semibold hover:text-emerald-300 transition-colors">
-            Sign Up
-          </a>
-        </p>
       </div>
-    </div>
+    </>
   );
 }
