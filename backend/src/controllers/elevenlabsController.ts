@@ -1,11 +1,12 @@
 import { ElevenLabsClient } from "elevenlabs";
 import { Response } from "express";
+import { AuthRequest } from "../middleware/auth";
 
 const elevenlabs = new ElevenLabsClient({
     apiKey: process.env.ELEVENLABS_API_KEY!,
 });
 
-export async function speak(req : , res : Response) {
+export async function speak(req: AuthRequest, res: Response) {
     try {
         const { text } = req.body;
 
@@ -13,12 +14,13 @@ export async function speak(req : , res : Response) {
             return res.status(400).json({ error: "Text is required" });
         }
 
-        const audioStream = await elevenlabs.textToSpeech.convert({
-            voice_id: "Rachel", // or your preferred voice ID
-            model_id: "eleven_turbo_v2",
-            text,
-        });
-
+        const audioStream = await elevenlabs.textToSpeech.convert(
+            "Rachel", // voiceId
+            {
+                text,
+                model_id: "eleven_turbo_v2",
+            }
+        );
         res.setHeader("Content-Type", "audio/mpeg");
         audioStream.pipe(res);
     } catch (error) {
@@ -28,14 +30,6 @@ export async function speak(req : , res : Response) {
 }
 
 /*
-const response = await fetch("http://localhost:3000/elevenlabs/speak", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  credentials: "include",
-  body: JSON.stringify({
-    text: "Keep your core tight and breathe steadily.",
-  }),
-});
 
 const audioBlob = await response.blob();
 const audioUrl = URL.createObjectURL(audioBlob);
