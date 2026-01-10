@@ -1,0 +1,17 @@
+import { z } from "zod";
+
+export const exerciseSchema : any = z.object({
+    exercise: z.string().describe("Name of the excercise"),
+    location: z.string().describe("location of user"),
+    muscle: z.string().describe("Muscle group we are targeting to workout through this excercise"),
+    reps: z.number().describe("Number of reps suggested for the exercise"),
+    sets: z.number().describe("Number of sets suggested for the excercise"),
+    response: z.string().describe("response to the user")
+});
+
+export interface WorkoutContext {
+    location: string;
+    goal: string;
+    completedExercises: string[];
+    declinedExercises: string[];
+}
