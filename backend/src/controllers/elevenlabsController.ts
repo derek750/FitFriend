@@ -28,10 +28,3 @@ export async function speak(req: AuthRequest, res: Response) {
         res.status(500).json({ error: "Failed to generate speech" });
     }
 }
-
-/*
-
-const audioBlob = await response.blob();
-const audioUrl = URL.createObjectURL(audioBlob);
-new Audio(audioUrl).play();
-*/
