@@ -7,6 +7,7 @@ import session from "express-session";
 import passport from "./config/passport";
 import mongoose from 'mongoose';
 
+import mongoRouter from "./routes/mongoRoute";
 import googleRouter from "./routes/googleRoute";
 
 dotenv.config();
@@ -44,6 +45,7 @@ mongoose.connect(process.env.MONGO_URI!, {})
     .catch(err => console.error('MongoDB connection error:', err));
 
 app.use("/google", googleRouter)
+app.use("/database", mongoRouter)
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
