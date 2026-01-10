@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Dumbbell, Calendar, Clock, Plus, ChevronRight, X, TrendingUp, Pencil, Trash2 } from 'lucide-react';
 import type { Workout } from '../types/workout';
 import * as Mongo from '../api/mongo';
+import { useNavigate } from "react-router-dom";
 
 interface HomePageProps {
     username?: string;
@@ -10,6 +11,8 @@ interface HomePageProps {
 export default function HomePage({ username = "User" }: HomePageProps) {
     const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
     const [workouts, setWorkouts] = useState<Workout[]>([]);
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         const loadWorkouts = async () => {
@@ -25,9 +28,13 @@ export default function HomePage({ username = "User" }: HomePageProps) {
     }, []);
 
     // Event Handlers
-    const handleStartWorkout = () => {
-        console.log('Start new workout clicked');
-        // Navigate to new workout page or open create workout form
+    const handleStartWorkout = async () => {
+        try {
+            const newWorkout : Workout & { _id: string } = await Mongo.createWorkout();
+            navigate(`/workout/${newWorkout._id}`);
+        } catch (error) {
+            console.error("Failed to start workout:", error);
+        }
     };
 
     const handleEditWorkout = (workout: Workout, e: React.MouseEvent) => {
@@ -38,7 +45,7 @@ export default function HomePage({ username = "User" }: HomePageProps) {
 
     const handleDeleteWorkout = async (workout: Workout, e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent modal from opening
-        
+
         if (window.confirm('Are you sure you want to delete this workout?')) {
             try {
                 console.log('Delete workout clicked', workout);
@@ -856,15 +863,15 @@ export default function HomePage({ username = "User" }: HomePageProps) {
                                     >
                                         {/* Action Buttons */}
                                         <div className="workout-actions">
-                                            <button 
-                                                className="action-btn edit" 
+                                            <button
+                                                className="action-btn edit"
                                                 onClick={(e) => handleEditWorkout(workout, e)}
                                                 title="Edit Workout"
                                             >
                                                 <Pencil size={16} color="#10b981" />
                                             </button>
-                                            <button 
-                                                className="action-btn delete" 
+                                            <button
+                                                className="action-btn delete"
                                                 onClick={(e) => handleDeleteWorkout(workout, e)}
                                                 title="Delete Workout"
                                             >

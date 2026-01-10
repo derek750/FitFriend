@@ -1,34 +1,44 @@
-import mongoose, { Schema } from 'mongoose';
-
-export interface IWorkout {
-    task: Task,
-    time: number
-}
+import mongoose, { Schema } from "mongoose";
 
 export type Task = {
-    bodyPart: string,
-    exercise: string,
-    timeStarted: number,
-    timeTaken: number,
-    reps: number,
-    sets: number,
+  bodyPart: string;
+  exercise: string;
+  timeStarted: number;
+  timeTaken: number;
+  reps: number;
+  sets: number;
+};
+
+export interface Workout {
+  task: Task[]; 
+  date: Date;     
+// need id
 }
 
-const TaskSchema = new Schema<Task>({
+const TaskSchema = new Schema<Task>(
+  {
     bodyPart: { type: String, required: true },
     exercise: { type: String, required: true },
     timeStarted: { type: Number, required: true },
     timeTaken: { type: Number, required: true },
     reps: { type: Number, required: true },
     sets: { type: Number, required: true },
-});
+  },
+  { _id: false } // optional: prevents auto _id for each task
+);
 
-const WorkoutSchema = new Schema<IWorkout>({
-    task: { type: TaskSchema, required: true },
-    time: { type: Number, required: true },
-});
+const WorkoutSchema = new Schema<Workout>(
+  {
+    task: {
+      type: [TaskSchema], // ✅ array of tasks
+      required: true,
+    },
+    date: {
+      type: Date,
+      default: Date.now, // ✅ auto timestamp
+    },
+  },
+  // need an id
+);
 
-// Index for efficient querying by userId
-TaskSchema.index({ userId: 1, createdAt: -1 });
-
-export default mongoose.model<IWorkout>('Workout', WorkoutSchema);
+export default mongoose.model<Workout>("Workout", WorkoutSchema);
