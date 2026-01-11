@@ -3,6 +3,7 @@ import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
 import type { ChatMessage } from '../types/chat';
 import type { AIResponse } from '../types/gemini';
 import * as Gemini from '../api/gemini';
+import * as ElevenLabs from '../api/elevenlabs'
 
 declare global {
     interface Window {
@@ -91,6 +92,8 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                     }
                 ]);
                 console.log(res.response)
+                // after ai has responded
+                ElevenLabs.speak(res.response);
 
             } catch (err) {
                 console.error("Gemini error:", err);
