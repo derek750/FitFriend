@@ -7,7 +7,8 @@ export const exerciseSchema : any = z.object({
     reps: z.number().describe("Number of reps suggested for the exercise"),
     sets: z.number().describe("Number of sets suggested for the excercise"),
     declined: z.boolean().describe("If the user declines previous exercise set as true"),
-    response: z.string().describe("Response to the user")
+    response: z.string().describe("Response to the user"),
+    isNotTask: z.boolean().describe("If the AI is not giving an exercise response this is true")
 });
 
 export interface AIResponse {
@@ -18,6 +19,7 @@ export interface AIResponse {
     sets: number;
     declined: boolean;
     response: string;
+    isNotTask: boolean
 }
 
 export interface WorkoutContext {

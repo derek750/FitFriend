@@ -31,6 +31,7 @@ export async function newExercise(req: AuthRequest, res: Response) {
                         sets: number;
                         declined: boolean;
                         response: string;
+                        isNotTask: boolean
                         Each must get a response and must match the datatype`
                     }]
                 },

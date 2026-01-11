@@ -10,6 +10,7 @@ export type Task = {
     timeTaken: number, // ui
     reps: number, // gemini
     sets: number, // gemini
+    completed : boolean,
     // test if cur response.declined = true;
     // cut the previous task --> in gemini
 }

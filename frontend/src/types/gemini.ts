@@ -6,6 +6,7 @@ export interface AIResponse {
     sets: number;
     declined: boolean;
     response: string;
+    isNotTask: boolean;
 }
 
 export interface WorkoutContext {

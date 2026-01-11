@@ -12,7 +12,7 @@ export async function speak(req: AuthRequest, res: Response) {
     if (!text) {
         return res.status(400).json({ error: "Text is required" });
     }
-
+    console.log(text);
     try {
         const audioStream = await elevenlabs.textToDialogue.stream({
             inputs: [

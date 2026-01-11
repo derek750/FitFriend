@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
 import type { ChatMessage } from '../types/chat';
 import type { AIResponse } from '../types/gemini';
-import * as Gemini from '../api/gemini'; 
+import * as Gemini from '../api/gemini';
 import type { Task } from '../types/workout';
 import * as ElevenLabs from '../api/elevenlabs'
 
@@ -80,19 +80,27 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                 // after ai has responded
                 ElevenLabs.speak(res.response);
 
-                if(res.exercise) {
-                    setTasks(prev => [
-                        ...prev,
-                        {
-                            exercise: res.exercise,
-                            sets: res.sets,
-                            reps: res.reps,
-                            bodyPart: res.muscle,
-                            timeStarted: 0,
-                            timeTaken: 0,
-                        },
-                    ]);
+                if (!res.isNotTask) {
+                    if (res.exercise) {
+                        setTasks(prev => [
+                            ...prev,
+                            {
+                                exercise: res.exercise,
+                                sets: res.sets,
+                                reps: res.reps,
+                                bodyPart: res.muscle,
+                                timeStarted: 0,
+                                timeTaken: 0,
+                                completed: false,
+                            },
+                        ]);
+                    }
                 }
+                // finish last exercise --> mark complete
+                // set time taken
+                const previousTask: Task | null = tasks.length > 0 ? tasks[tasks.length - 1] : null;
+                if (previousTask) previousTask.completed = true;
+
             } catch (err) {
                 console.error(err);
             } finally {
