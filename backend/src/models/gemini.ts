@@ -10,6 +10,16 @@ export const exerciseSchema : any = z.object({
     response: z.string().describe("Response to the user")
 });
 
+export interface AIResponse {
+    exercise: string;
+    location: string;
+    muscle: string;
+    reps: number;
+    sets: number;
+    declined: boolean;
+    response: string;
+}
+
 export interface WorkoutContext {
     input : string;
     location: string;

@@ -2,16 +2,17 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
+dotenv.config();
+
 import session from "express-session";
 
 import passport from "./config/passport";
 import mongoose from 'mongoose';
+import { GoogleGenAI } from '@google/genai';
 
 import mongoRouter from "./routes/mongoRoute";
 import googleRouter from "./routes/googleRoute";
 import geminiRouter from "./routes/geminiRoute";
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
@@ -49,6 +50,8 @@ mongoose.connect(process.env.MONGO_URI!, {})
 app.use("/google", googleRouter)
 app.use("/database", mongoRouter)
 app.use('/gemini', geminiRouter);
+
+export const AI = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);

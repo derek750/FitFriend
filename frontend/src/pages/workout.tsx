@@ -1,110 +1,131 @@
 import React, { useState } from 'react';
 import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
+import type { ChatMessage } from '../types/chat';
+import type { AIResponse } from '../types/gemini';
+import * as Gemini from '../api/gemini';
 
-// TypeScript Interfaces
 declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
-}
-
-interface ChatMessage {
-  id: number;
-  sender: 'user' | 'ai';
-  message: string;
-  timestamp: Date;
+    interface Window {
+        webkitSpeechRecognition: any;
+        SpeechRecognition: any;
+    }
 }
 
 interface Exercise {
-  name: string;
-  sets: number;
-  reps: number;
-  bodyPart: string;
-  completed: boolean;
+    name: string;
+    sets: number;
+    reps: number;
+    bodyPart: string;
+    completed: boolean;
 }
 
 interface WorkoutPageProps {
-  onBack?: () => void;
+    onBack?: () => void;
 }
 
 export default function WorkoutPage({ onBack }: WorkoutPageProps) {
-  const [isPushToTalk, setIsPushToTalk] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 1,
-      sender: 'ai',
-      message: "Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!",
-      timestamp: new Date()
-    },
-  ]);
-
-  const [exercises] = useState<Exercise[]>([
-    { name: 'Bench Press', sets: 4, reps: 12, bodyPart: 'Chest', completed: true },
-    { name: 'Incline Dumbbell Press', sets: 3, reps: 10, bodyPart: 'Chest', completed: false },
-    { name: 'Cable Flyes', sets: 3, reps: 15, bodyPart: 'Chest', completed: false },
-    { name: 'Tricep Pushdowns', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
-    { name: 'Overhead Extension', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
-    { name: 'Dips', sets: 3, reps: 10, bodyPart: 'Triceps', completed: false }
-  ]);
-
-  // Event Handlers
-  const handlePushToTalkPress = () => {
-    setIsPushToTalk(true);
-    
-    // Speech Recognition Setup
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      alert("Speech Recognition not supported in this browser");
-      setIsPushToTalk(false);
-      return;
-    }
-    
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setChatMessages(prev => [
-        ...prev,
+    const [isPushToTalk, setIsPushToTalk] = useState<boolean>(false);
+    const [canTalk, setCanTalk] = useState<boolean>(true);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
         {
-          id: prev.length + 1,
-          sender: 'user',
-          message: transcript,
-          timestamp: new Date()
+            id: 1,
+            sender: 'ai',
+            message: "Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!",
+            timestamp: new Date()
+        },
+    ]);
+
+    const [exercises] = useState<Exercise[]>([
+        { name: 'Bench Press', sets: 4, reps: 12, bodyPart: 'Chest', completed: true },
+        { name: 'Incline Dumbbell Press', sets: 3, reps: 10, bodyPart: 'Chest', completed: false },
+        { name: 'Cable Flyes', sets: 3, reps: 15, bodyPart: 'Chest', completed: false },
+        { name: 'Tricep Pushdowns', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
+        { name: 'Overhead Extension', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
+        { name: 'Dips', sets: 3, reps: 10, bodyPart: 'Triceps', completed: false }
+    ]);
+
+    // Event Handlers
+    const handlePushToTalkPress = async () => {
+        if (!canTalk) return;
+
+        setIsPushToTalk(true);
+
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert("Speech Recognition not supported in this browser");
+            setIsPushToTalk(false);
+            return;
         }
-      ]);
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = async (event: any) => {
+            const transcript = event.results[0][0].transcript;
+
+            setChatMessages(prev => [
+                ...prev,
+                {
+                    id: prev.length + 1,
+                    sender: "user",
+                    message: transcript,
+                    timestamp: new Date()
+                }
+            ]);
+
+            setCanTalk(false);
+
+            try {
+                const res: AIResponse = await Gemini.recommendExercise(transcript);
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        id: prev.length + 1,
+                        sender: "ai",
+                        message: res.response,
+                        timestamp: new Date()
+                    }
+                ]);
+                console.log(res.response)
+
+            } catch (err) {
+                console.error("Gemini error:", err);
+            } finally {
+                setCanTalk(true);
+            }
+        };
+
+        recognition.onend = () => {
+            setIsPushToTalk(false);
+        };
+
+        recognition.onerror = () => {
+            setIsPushToTalk(false);
+        };
+
+        recognition.start();
     };
 
-    recognition.onend = () => {
-      setIsPushToTalk(false);
+
+    const handlePushToTalkRelease = () => {
+        setIsPushToTalk(false);
     };
 
-    recognition.onerror = () => {
-      setIsPushToTalk(false);
+    const handleBack = () => {
+        if (onBack) {
+            onBack();
+        } else {
+            console.log('Navigate back to homepage');
+        }
     };
 
-    recognition.start();
-  };
-
-  const handlePushToTalkRelease = () => {
-    setIsPushToTalk(false);
-  };
-
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      console.log('Navigate back to homepage');
-    }
-  };
-
-  return (
-    <>
-      <style>{`
+    return (
+        <>
+            <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@300;400;600;700&display=swap');
         
         body, html {
@@ -576,109 +597,109 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
         }
       `}</style>
 
-      <div className="workout-page-wrapper">
-        {/* Background Orbs */}
-        <div className="orb orb-1"></div>
-        <div className="orb orb-2"></div>
+            <div className="workout-page-wrapper">
+                {/* Background Orbs */}
+                <div className="orb orb-1"></div>
+                <div className="orb orb-2"></div>
 
-        {/* Header */}
-        <header className="workout-header">
-          <button onClick={handleBack} className="back-button">
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="hero-title header-title">
-              <span className="gradient-text">ACTIVE WORKOUT</span>
-            </h1>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <div className="workout-main">
-          {/* Left Panel - Chat */}
-          <div className="chat-panel">
-            <div className="chat-header">
-              <h2 className="hero-title gradient-text">AI COACH</h2>
-              <p className="chat-subtitle">Your personal training assistant</p>
-            </div>
-
-            <div className="chat-messages">
-              {chatMessages.map((msg) => (
-                <div key={msg.id} className={`chat-message ${msg.sender}`}>
-                  <div className={`message-avatar ${msg.sender}`}>
-                    {msg.sender === 'ai' ? (
-                      <Dumbbell size={16} />
-                    ) : (
-                      'U'
-                    )}
-                  </div>
-                  <div className="message-content">
-                    <div className={`message-bubble ${msg.sender}`}>
-                      {msg.message}
-                    </div>
-                    <div className="message-time">
-                      {msg.timestamp.toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Push to Talk */}
-            <div className="push-to-talk-container">
-              <button
-                className={`push-to-talk-button ${isPushToTalk ? 'active' : ''}`}
-                onMouseDown={handlePushToTalkPress}
-                onMouseUp={handlePushToTalkRelease}
-                onMouseLeave={handlePushToTalkRelease}
-                onTouchStart={handlePushToTalkPress}
-                onTouchEnd={handlePushToTalkRelease}
-              >
-                <Mic size={28} color="white" />
-              </button>
-              <p className={`push-to-talk-text ${isPushToTalk ? 'active' : ''}`}>
-                {isPushToTalk ? 'Listening...' : 'Hold to Speak'}
-              </p>
-            </div>
-          </div>
-
-          {/* Right Panel - Exercises */}
-          <div className="exercises-panel">
-            <div className="exercises-header">
-              <h2 className="hero-title gradient-text">UP NEXT</h2>
-              <p className="exercises-subtitle">{exercises.filter(e => !e.completed).length} exercises remaining</p>
-            </div>
-
-            <div className="exercises-list">
-              {exercises.map((exercise, index) => (
-                <div key={index} className={`exercise-item ${exercise.completed ? 'completed' : ''}`}>
-                  <div className="exercise-header">
+                {/* Header */}
+                <header className="workout-header">
+                    <button onClick={handleBack} className="back-button">
+                        <ArrowLeft size={18} />
+                    </button>
                     <div>
-                      <div className="exercise-name">{exercise.name}</div>
-                      <div className="exercise-body-part">{exercise.bodyPart}</div>
+                        <h1 className="hero-title header-title">
+                            <span className="gradient-text">ACTIVE WORKOUT</span>
+                        </h1>
                     </div>
-                    <div className={`exercise-status ${exercise.completed ? 'completed' : ''}`}></div>
-                  </div>
-                  <div className="exercise-details">
-                    <div className="exercise-detail-item">
-                      <span className="exercise-detail-value">{exercise.sets}</span>
-                      <span>sets</span>
+                </header>
+
+                {/* Main Content */}
+                <div className="workout-main">
+                    {/* Left Panel - Chat */}
+                    <div className="chat-panel">
+                        <div className="chat-header">
+                            <h2 className="hero-title gradient-text">AI COACH</h2>
+                            <p className="chat-subtitle">Your personal training assistant</p>
+                        </div>
+
+                        <div className="chat-messages">
+                            {chatMessages.map((msg) => (
+                                <div key={msg.id} className={`chat-message ${msg.sender}`}>
+                                    <div className={`message-avatar ${msg.sender}`}>
+                                        {msg.sender === 'ai' ? (
+                                            <Dumbbell size={16} />
+                                        ) : (
+                                            'U'
+                                        )}
+                                    </div>
+                                    <div className="message-content">
+                                        <div className={`message-bubble ${msg.sender}`}>
+                                            {msg.message}
+                                        </div>
+                                        <div className="message-time">
+                                            {msg.timestamp.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Push to Talk */}
+                        <div className="push-to-talk-container">
+                            <button
+                                className={`push-to-talk-button ${isPushToTalk ? 'active' : ''}`}
+                                onMouseDown={handlePushToTalkPress}
+                                onMouseUp={handlePushToTalkRelease}
+                                onMouseLeave={handlePushToTalkRelease}
+                                onTouchStart={handlePushToTalkPress}
+                                onTouchEnd={handlePushToTalkRelease}
+                            >
+                                <Mic size={28} color="white" />
+                            </button>
+                            <p className={`push-to-talk-text ${isPushToTalk ? 'active' : ''}`}>
+                                {isPushToTalk ? 'Listening...' : 'Hold to Speak'}
+                            </p>
+                        </div>
                     </div>
-                    <span>×</span>
-                    <div className="exercise-detail-item">
-                      <span className="exercise-detail-value">{exercise.reps}</span>
-                      <span>reps</span>
+
+                    {/* Right Panel - Exercises */}
+                    <div className="exercises-panel">
+                        <div className="exercises-header">
+                            <h2 className="hero-title gradient-text">UP NEXT</h2>
+                            <p className="exercises-subtitle">{exercises.filter(e => !e.completed).length} exercises remaining</p>
+                        </div>
+
+                        <div className="exercises-list">
+                            {exercises.map((exercise, index) => (
+                                <div key={index} className={`exercise-item ${exercise.completed ? 'completed' : ''}`}>
+                                    <div className="exercise-header">
+                                        <div>
+                                            <div className="exercise-name">{exercise.name}</div>
+                                            <div className="exercise-body-part">{exercise.bodyPart}</div>
+                                        </div>
+                                        <div className={`exercise-status ${exercise.completed ? 'completed' : ''}`}></div>
+                                    </div>
+                                    <div className="exercise-details">
+                                        <div className="exercise-detail-item">
+                                            <span className="exercise-detail-value">{exercise.sets}</span>
+                                            <span>sets</span>
+                                        </div>
+                                        <span>×</span>
+                                        <div className="exercise-detail-item">
+                                            <span className="exercise-detail-value">{exercise.reps}</span>
+                                            <span>reps</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                  </div>
                 </div>
-              ))}
             </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+        </>
+    );
 }
