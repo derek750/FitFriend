@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
 import type { ChatMessage } from '../types/chat';
 import type { AIResponse } from '../types/gemini';
-import * as Gemini from '../api/gemini';
+import * as Gemini from '../api/gemini'; 
+import type { Task } from '../types/workout';
 
 declare global {
     interface Window {
@@ -11,40 +12,23 @@ declare global {
     }
 }
 
-interface Exercise {
-    name: string;
-    sets: number;
-    reps: number;
-    bodyPart: string;
-    completed: boolean;
-}
-
 interface WorkoutPageProps {
     onBack?: () => void;
 }
 
 export default function WorkoutPage({ onBack }: WorkoutPageProps) {
-    const [isPushToTalk, setIsPushToTalk] = useState<boolean>(false);
-    const [canTalk, setCanTalk] = useState<boolean>(true);
+    const [isPushToTalk, setIsPushToTalk] = useState(false);
+    const [canTalk, setCanTalk] = useState(true);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
         {
             id: 1,
             sender: 'ai',
-            message: "Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!",
-            timestamp: new Date()
+            message: 'Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!',
+            timestamp: new Date(),
         },
     ]);
 
-    const [exercises] = useState<Exercise[]>([
-        { name: 'Bench Press', sets: 4, reps: 12, bodyPart: 'Chest', completed: true },
-        { name: 'Incline Dumbbell Press', sets: 3, reps: 10, bodyPart: 'Chest', completed: false },
-        { name: 'Cable Flyes', sets: 3, reps: 15, bodyPart: 'Chest', completed: false },
-        { name: 'Tricep Pushdowns', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
-        { name: 'Overhead Extension', sets: 3, reps: 12, bodyPart: 'Triceps', completed: false },
-        { name: 'Dips', sets: 3, reps: 10, bodyPart: 'Triceps', completed: false }
-    ]);
-
-    // Event Handlers
     const handlePushToTalkPress = async () => {
         if (!canTalk) return;
 
@@ -54,13 +38,13 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
             window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            alert("Speech Recognition not supported in this browser");
+            alert('Speech Recognition not supported');
             setIsPushToTalk(false);
             return;
         }
 
         const recognition = new SpeechRecognition();
-        recognition.lang = "en-US";
+        recognition.lang = 'en-US';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
@@ -71,56 +55,66 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                 ...prev,
                 {
                     id: prev.length + 1,
-                    sender: "user",
+                    sender: 'user',
                     message: transcript,
-                    timestamp: new Date()
-                }
+                    timestamp: new Date(),
+                },
             ]);
 
             setCanTalk(false);
 
             try {
                 const res: AIResponse = await Gemini.recommendExercise(transcript);
+
                 setChatMessages(prev => [
                     ...prev,
                     {
                         id: prev.length + 1,
-                        sender: "ai",
+                        sender: 'ai',
                         message: res.response,
-                        timestamp: new Date()
-                    }
+                        timestamp: new Date(),
+                    },
                 ]);
-                console.log(res.response)
 
+                if(res.exercise) {
+                    setTasks(prev => [
+                        ...prev,
+                        {
+                            exercise: res.exercise,
+                            sets: res.sets,
+                            reps: res.reps,
+                            bodyPart: res.muscle,
+                            timeStarted: 0,
+                            timeTaken: 0,
+                        },
+                    ]);
+                }
             } catch (err) {
-                console.error("Gemini error:", err);
+                console.error(err);
             } finally {
                 setCanTalk(true);
             }
         };
 
-        recognition.onend = () => {
-            setIsPushToTalk(false);
-        };
-
-        recognition.onerror = () => {
-            setIsPushToTalk(false);
-        };
+        recognition.onend = () => setIsPushToTalk(false);
+        recognition.onerror = () => setIsPushToTalk(false);
 
         recognition.start();
     };
-
 
     const handlePushToTalkRelease = () => {
         setIsPushToTalk(false);
     };
 
     const handleBack = () => {
-        if (onBack) {
-            onBack();
-        } else {
-            console.log('Navigate back to homepage');
-        }
+        onBack?.();
+    };
+
+    const handleFinishWorkout = () => {
+        console.log('Finish workout clicked');
+        console.log('Tasks completed:', tasks);
+        // Add your finish workout logic here
+        // For example: navigate back, save workout to database, etc.
     };
 
     return (
@@ -435,6 +429,11 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
           animation: ripple 1.5s ease-out infinite;
         }
 
+        .push-to-talk-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .push-to-talk-text {
           font-size: 0.8125rem;
           color: #a1a1aa;
@@ -573,6 +572,40 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
           color: white;
         }
 
+        /* Finish Workout Button Container */
+        .finish-workout-container {
+          padding: 1.25rem 1.5rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
+          background: rgba(9, 9, 11, 0.5);
+          backdrop-filter: blur(10px);
+        }
+
+        .finish-workout-btn {
+          width: 100%;
+          padding: 0.875rem 1.5rem;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          border: none;
+          border-radius: 12px;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: white;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .finish-workout-btn:hover {
+          background: linear-gradient(135deg, #dc2626, #b91c1c);
+          box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+          transform: translateY(-2px);
+        }
+
+        .finish-workout-btn:active {
+          transform: translateY(0);
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
           .exercises-panel {
@@ -657,11 +690,12 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                                 onMouseLeave={handlePushToTalkRelease}
                                 onTouchStart={handlePushToTalkPress}
                                 onTouchEnd={handlePushToTalkRelease}
+                                disabled={!canTalk}
                             >
                                 <Mic size={28} color="white" />
                             </button>
                             <p className={`push-to-talk-text ${isPushToTalk ? 'active' : ''}`}>
-                                {isPushToTalk ? 'Listening...' : 'Hold to Speak'}
+                                {!canTalk ? 'AI is thinking...' : isPushToTalk ? 'Listening...' : 'Hold to Speak'}
                             </p>
                         </div>
                     </div>
@@ -670,33 +704,42 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                     <div className="exercises-panel">
                         <div className="exercises-header">
                             <h2 className="hero-title gradient-text">UP NEXT</h2>
-                            <p className="exercises-subtitle">{exercises.filter(e => !e.completed).length} exercises remaining</p>
+                            <p className="exercises-subtitle">{tasks.length} exercises</p>
                         </div>
 
                         <div className="exercises-list">
-                            {exercises.map((exercise, index) => (
-                                <div key={index} className={`exercise-item ${exercise.completed ? 'completed' : ''}`}>
+                            {tasks.map((task, index) => (
+                                <div key={index} className="exercise-item">
                                     <div className="exercise-header">
                                         <div>
-                                            <div className="exercise-name">{exercise.name}</div>
-                                            <div className="exercise-body-part">{exercise.bodyPart}</div>
+                                            <div className="exercise-name">{task.exercise}</div>
+                                            <div className="exercise-body-part">{task.bodyPart}</div>
                                         </div>
-                                        <div className={`exercise-status ${exercise.completed ? 'completed' : ''}`}></div>
+                                        <div className="exercise-status"></div>
                                     </div>
                                     <div className="exercise-details">
                                         <div className="exercise-detail-item">
-                                            <span className="exercise-detail-value">{exercise.sets}</span>
+                                            <span className="exercise-detail-value">{task.sets}</span>
                                             <span>sets</span>
                                         </div>
                                         <span>×</span>
                                         <div className="exercise-detail-item">
-                                            <span className="exercise-detail-value">{exercise.reps}</span>
+                                            <span className="exercise-detail-value">{task.reps}</span>
                                             <span>reps</span>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
+
+                        {/* Finish Workout Button - Only shows when tasks exist */}
+                        {tasks.length > 0 ? (
+                            <div className="finish-workout-container">
+                                <button onClick={handleFinishWorkout} className="finish-workout-btn">
+                                    Finish Workout
+                                </button>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             </div>

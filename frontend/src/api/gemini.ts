@@ -45,3 +45,7 @@ export async function recommendExercise(input: string): Promise<AIResponse> {
 
     return res;
 }
+
+export async function exportData() : Promise<WorkoutContext> {
+    return data;
+}

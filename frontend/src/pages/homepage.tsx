@@ -1,115 +1,123 @@
-import React, { useEffect, useState } from 'react';
-import { Dumbbell, Calendar, Clock, Plus, ChevronRight, X, TrendingUp, Pencil, Trash2 } from 'lucide-react';
-import type { Workout } from '../types/workout';
-import * as Mongo from '../api/mongo';
-import { useNavigate } from "react-router-dom";
+import React, { useState } from 'react';
+import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
+import type { ChatMessage } from '../types/chat';
+import type { AIResponse } from '../types/gemini';
+import * as Gemini from '../api/gemini'; 
+import type { Task } from '../types/workout';
 
-interface HomePageProps {
-    username?: string;
+declare global {
+    interface Window {
+        webkitSpeechRecognition: any;
+        SpeechRecognition: any;
+    }
 }
 
-export default function HomePage({ username = "User" }: HomePageProps) {
-    const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
-    const [workouts, setWorkouts] = useState<Workout[]>([]);
+interface WorkoutPageProps {
+    onBack?: () => void;
+}
 
-    const navigate = useNavigate();
+export default function WorkoutPage({ onBack }: WorkoutPageProps) {
+    const [isPushToTalk, setIsPushToTalk] = useState(false);
+    const [canTalk, setCanTalk] = useState(true);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+        {
+            id: 1,
+            sender: 'ai',
+            message:
+                'Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!',
+            timestamp: new Date(),
+        },
+    ]);
 
-    useEffect(() => {
-        const loadWorkouts = async () => {
+    const handlePushToTalkPress = async () => {
+        if (!canTalk) return;
+
+        setIsPushToTalk(true);
+
+        const SpeechRecognition =
+            window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert('Speech Recognition not supported');
+            setIsPushToTalk(false);
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = async (event: any) => {
+            const transcript = event.results[0][0].transcript;
+
+            setChatMessages(prev => [
+                ...prev,
+                {
+                    id: prev.length + 1,
+                    sender: 'user',
+                    message: transcript,
+                    timestamp: new Date(),
+                },
+            ]);
+
+            setCanTalk(false);
+
             try {
-                const workouts = await Mongo.getAllWorkouts();
-                setWorkouts(workouts);
+                const res: AIResponse = await Gemini.recommendExercise(transcript);
+
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        id: prev.length + 1,
+                        sender: 'ai',
+                        message: res.response,
+                        timestamp: new Date(),
+                    },
+                ]);
+
+                if(res.exercise) {
+                    setTasks(prev => [
+                        ...prev,
+                        {
+                            exercise: res.exercise,
+                            sets: res.sets,
+                            reps: res.reps,
+                            bodyPart: res.muscle,
+                            timeStarted: 0, // ui
+                            timeTaken: 0, // ui
+                        },
+                    ]);
+                }
             } catch (err) {
-                console.error("Error loading workouts:", err);
+                console.error(err);
+            } finally {
+                setCanTalk(true);
             }
         };
 
-        loadWorkouts();
-    }, []);
+        recognition.onend = () => setIsPushToTalk(false);
+        recognition.onerror = () => setIsPushToTalk(false);
 
-    // Event Handlers
-    const handleStartWorkout = async () => {
-        try {
-            const newWorkout : Workout & { _id: string } = await Mongo.createWorkout();
-            navigate(`/workout/${newWorkout._id}`);
-        } catch (error) {
-            console.error("Failed to start workout:", error);
-        }
+        recognition.start();
     };
 
-    const handleEditWorkout = (workout: Workout, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent modal from opening
-        console.log('Edit workout clicked', workout);
-        // Open edit workout modal/page
+    const handlePushToTalkRelease = () => {
+        setIsPushToTalk(false);
     };
 
-    const handleDeleteWorkout = async (workout: Workout, e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent modal from opening
-
-        if (window.confirm('Are you sure you want to delete this workout?')) {
-            try {
-                console.log('Delete workout clicked', workout);
-                // Add your delete logic here
-                // await Mongo.deleteWorkout(workout.id);
-                // Refresh workouts list
-                setWorkouts(workouts.filter(w => w !== workout));
-            } catch (err) {
-                console.error("Error deleting workout:", err);
-            }
-        }
+    const handleBack = () => {
+        onBack?.();
     };
 
-    const handleWorkoutClick = (workout: Workout) => {
-        setSelectedWorkout(workout);
-    };
-
-    const handleCloseModal = () => {
-        setSelectedWorkout(null);
-    };
-
-    // Helper Functions
-    const formatDate = (date: Date): string => {
-        const today = new Date();
-        const workoutDate = new Date(date);
-
-        if (workoutDate.toDateString() === today.toDateString()) {
-            return 'Today';
-        }
-
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-        if (workoutDate.toDateString() === yesterday.toDateString()) {
-            return 'Yesterday';
-        }
-
-        return workoutDate.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    };
-
-    const formatTime = (seconds: number): string => {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-
-        if (hours > 0) {
-            return `${hours}h ${minutes}m`;
-        }
-        return `${minutes}m`;
-    };
-
-    const getTotalDuration = (workout: Workout): number => {
-        return workout.task.reduce((total, task) => total + task.timeTaken, 0);
-    };
-
-    const getUniqueBodyParts = (workout: Workout): string[] => {
-        const bodyParts = workout.task.map(task => task.bodyPart);
-        return Array.from(new Set(bodyParts));
+    const handleFinishWorkout = () => {
+        console.log('Finish workout clicked');
+        // Add your finish workout logic here
     };
 
     return (
-        <div style={{ width: '100vw', height: '100vh', overflow: 'auto', background: '#09090b' }}>
+        <>
             <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@300;400;600;700&display=swap');
         
@@ -118,7 +126,7 @@ export default function HomePage({ username = "User" }: HomePageProps) {
           padding: 0;
           width: 100%;
           height: 100%;
-          overflow-x: hidden;
+          overflow: hidden;
         }
 
         * {
@@ -132,17 +140,6 @@ export default function HomePage({ username = "User" }: HomePageProps) {
           letter-spacing: -0.02em;
         }
         
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
         @keyframes pulse {
           0%, 100% {
             box-shadow: 0 0 40px rgba(0, 255, 136, 0.3);
@@ -151,36 +148,27 @@ export default function HomePage({ username = "User" }: HomePageProps) {
             box-shadow: 0 0 60px rgba(0, 255, 136, 0.5);
           }
         }
-        
-        @keyframes float {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
+
+        @keyframes ripple {
+          0% {
+            transform: scale(1);
+            opacity: 1;
           }
-          33% {
-            transform: translate(30px, -30px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
+          100% {
+            transform: scale(1.5);
+            opacity: 0;
           }
         }
 
-        @keyframes zoomIn {
+        @keyframes fadeIn {
           from {
             opacity: 0;
-            transform: scale(0.95);
+            transform: translateY(10px);
           }
           to {
             opacity: 1;
-            transform: scale(1);
+            transform: translateY(0);
           }
-        }
-        
-        .animate-fade-in {
-          animation: fadeIn 0.6s ease-out forwards;
-        }
-
-        .animate-zoom-in {
-          animation: zoomIn 0.3s ease-out forwards;
         }
         
         .gradient-text {
@@ -193,478 +181,357 @@ export default function HomePage({ username = "User" }: HomePageProps) {
         .glow-effect {
           animation: pulse 3s ease-in-out infinite;
         }
-        
-        .homepage-container {
-          min-height: 100vh;
-          width: 100%;
-          max-width: 100vw;
+
+        .workout-page-wrapper {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100vw;
+          height: 100vh;
           background: #09090b;
-          color: white;
-          position: relative;
-          overflow-x: hidden;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
         }
-        
+
         .orb {
           position: fixed;
           border-radius: 50%;
-          filter: blur(100px);
-          opacity: 0.3;
-          animation: float 20s ease-in-out infinite;
+          filter: blur(80px);
+          opacity: 0.2;
           pointer-events: none;
         }
         
         .orb-1 {
-          width: 300px;
-          height: 300px;
+          width: 250px;
+          height: 250px;
           background: #00ff88;
-          top: -100px;
-          left: -100px;
-          animation-delay: 0s;
+          top: -80px;
+          left: -80px;
         }
         
         .orb-2 {
-          width: 250px;
-          height: 250px;
-          background: #00d4ff;
-          bottom: -80px;
-          right: -80px;
-          animation-delay: 5s;
-        }
-        
-        .orb-3 {
           width: 200px;
           height: 200px;
-          background: #00ff88;
-          top: 40%;
-          right: -100px;
-          animation-delay: 10s;
+          background: #00d4ff;
+          bottom: -60px;
+          right: -60px;
         }
 
         /* Header */
-        .header {
+        .workout-header {
           position: relative;
           z-index: 100;
           backdrop-filter: blur(20px);
-          background: rgba(9, 9, 11, 0.8);
+          background: rgba(9, 9, 11, 0.9);
           border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          width: 100%;
-        }
-
-        .header-content {
-          max-width: 100%;
-          padding: 1rem 2rem;
+          padding: 0.875rem 1.5rem;
           display: flex;
           align-items: center;
-          justify-content: space-between;
+          gap: 1rem;
+          flex-shrink: 0;
         }
 
-        .header-logo {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .header-logo-icon {
-          width: 40px;
-          height: 40px;
-          background: linear-gradient(135deg, #10b981, #06b6d4);
-          border-radius: 12px;
+        .back-button {
+          padding: 0.5rem;
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+          cursor: pointer;
+          transition: all 0.3s ease;
           display: flex;
           align-items: center;
           justify-content: center;
+          color: white;
         }
 
-        .header-logo-text {
-          font-size: 1.25rem;
-          letter-spacing: 0.05em;
+        .back-button:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: #10b981;
         }
 
-        .header-user {
+        .header-title {
+          font-size: 1.125rem;
+          font-weight: 700;
+        }
+
+        /* Main Layout */
+        .workout-main {
           display: flex;
-          align-items: center;
-          gap: 0.75rem;
+          flex: 1;
+          overflow: hidden;
+          position: relative;
+          z-index: 10;
+          min-height: 0;
         }
 
-        .header-user-avatar {
-          width: 40px;
-          height: 40px;
-          background: linear-gradient(135deg, #10b981, #06b6d4);
+        /* Left Panel - Chat */
+        .chat-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.02);
+          min-width: 0;
+        }
+
+        .chat-header {
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
+        }
+
+        .chat-header h2 {
+          font-size: 1.125rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
+        }
+
+        .chat-subtitle {
+          font-size: 0.8125rem;
+          color: #a1a1aa;
+        }
+
+        .chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          min-height: 0;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+          width: 5px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+          background: rgba(16, 185, 129, 0.3);
+          border-radius: 3px;
+        }
+
+        .chat-message {
+          display: flex;
+          gap: 0.65rem;
+          animation: fadeIn 0.3s ease-out;
+        }
+
+        .chat-message.user {
+          flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
           font-weight: 700;
+          font-size: 0.8125rem;
+        }
+
+        .message-avatar.ai {
+          background: linear-gradient(135deg, #10b981, #06b6d4);
+        }
+
+        .message-avatar.user {
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        }
+
+        .message-content {
+          max-width: 70%;
+        }
+
+        .message-bubble {
+          padding: 0.65rem 0.875rem;
+          border-radius: 14px;
           font-size: 0.875rem;
+          line-height: 1.5;
         }
 
-        .header-user-name {
-          font-weight: 600;
+        .message-bubble.ai {
+          background: rgba(16, 185, 129, 0.1);
+          border: 1px solid rgba(16, 185, 129, 0.2);
         }
 
-        .header-welcome {
-          font-size: 0.875rem;
-          color: #a1a1aa;
+        .message-bubble.user {
+          background: rgba(99, 102, 241, 0.1);
+          border: 1px solid rgba(99, 102, 241, 0.2);
         }
 
-        /* Main Content */
-        .main-content {
-          position: relative;
-          z-index: 10;
-          width: 100%;
-          max-width: 100%;
-          padding: 2rem;
+        .message-time {
+          font-size: 0.6875rem;
+          color: #71717a;
+          margin-top: 0.25rem;
+          padding: 0 0.5rem;
         }
 
-        /* Hero Section */
-        .hero-section {
-          text-align: center;
-          margin-bottom: 3rem;
-          width: 100%;
-        }
-
-        .hero-title-main {
-          font-size: 2.5rem;
-          margin-bottom: 0.75rem;
-          line-height: 1.1;
-        }
-
-        .hero-subtitle {
-          font-size: 1rem;
-          color: #a1a1aa;
-          margin-bottom: 1.5rem;
-          max-width: 600px;
-          margin-left: auto;
-          margin-right: auto;
-        }
-
-        .start-workout-btn {
-          display: inline-flex;
+        /* Push to Talk */
+        .push-to-talk-container {
+          padding: 1.25rem 1.5rem;
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 0.75rem;
-          padding: 1rem 2rem;
+          gap: 0.875rem;
+          background: rgba(9, 9, 11, 0.5);
+          backdrop-filter: blur(10px);
+          flex-shrink: 0;
+        }
+
+        .push-to-talk-button {
+          width: 70px;
+          height: 70px;
+          border-radius: 50%;
           background: linear-gradient(135deg, #10b981, #06b6d4);
           border: none;
-          border-radius: 16px;
-          font-size: 1rem;
-          font-weight: 700;
-          color: white;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           transition: all 0.3s ease;
+          position: relative;
+          box-shadow: 0 10px 40px rgba(16, 185, 129, 0.3);
         }
 
-        .start-workout-btn:hover {
-          box-shadow: 0 20px 60px rgba(16, 185, 129, 0.4);
-          transform: scale(1.05);
+        .push-to-talk-button:hover {
+          transform: scale(1.08);
+          box-shadow: 0 15px 50px rgba(16, 185, 129, 0.5);
         }
 
-        .start-workout-btn:active {
+        .push-to-talk-button:active {
           transform: scale(0.95);
         }
 
-        /* Section Header */
-        .section-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 1.5rem;
-          width: 100%;
+        .push-to-talk-button.active {
+          animation: pulse 1s ease-in-out infinite;
         }
 
-        .section-title {
-          font-size: 1.5rem;
-        }
-
-        .section-count {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: #a1a1aa;
-          font-size: 0.875rem;
-          font-weight: 600;
-        }
-
-        /* Workout Grid */
-        .workout-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 1.5rem;
-          width: 100%;
-        }
-
-        .workout-card {
-          background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 24px;
-          padding: 1.5rem;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          position: relative;
-        }
-
-        .workout-card:hover {
-          border-color: rgba(16, 185, 129, 0.5);
-          box-shadow: 0 20px 60px rgba(16, 185, 129, 0.2);
-          transform: translateY(-8px) scale(1.02);
-        }
-
-        .workout-card:hover .workout-actions {
-          opacity: 1;
-        }
-
-        .workout-visual {
-          width: 100%;
-          height: 160px;
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 182, 212, 0.2));
-          border-radius: 16px;
-          margin-bottom: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          position: relative;
-          overflow: hidden;
-        }
-
-        .workout-visual::before {
+        .push-to-talk-button.active::before {
           content: '';
           position: absolute;
-          inset: 0;
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+          top: -8px;
+          left: -8px;
+          right: -8px;
+          bottom: -8px;
+          border-radius: 50%;
+          border: 2px solid #10b981;
+          animation: ripple 1.5s ease-out infinite;
         }
 
-        .workout-actions {
-          position: absolute;
-          top: 1rem;
-          right: 1rem;
-          display: flex;
-          gap: 0.5rem;
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          z-index: 10;
+        .push-to-talk-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
-        .action-btn {
-          padding: 0.5rem;
-          background: rgba(9, 9, 11, 0.9);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .push-to-talk-text {
+          font-size: 0.8125rem;
+          color: #a1a1aa;
+          font-weight: 600;
         }
 
-        .action-btn.edit:hover {
-          background: rgba(16, 185, 129, 0.2);
-          border-color: #10b981;
+        .push-to-talk-text.active {
+          color: #10b981;
         }
 
-        .action-btn.delete:hover {
-          background: rgba(239, 68, 68, 0.2);
-          border-color: #ef4444;
-        }
-
-        .workout-info {
+        /* Right Panel - Exercises */
+        .exercises-panel {
+          width: 340px;
           display: flex;
           flex-direction: column;
-          gap: 1rem;
+          background: rgba(255, 255, 255, 0.02);
+          flex-shrink: 0;
         }
 
-        .workout-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .workout-date, .workout-duration {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .workout-date {
-          color: #10b981;
-        }
-
-        .workout-duration {
-          color: #06b6d4;
-        }
-
-        .workout-tags {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-        }
-
-        .workout-tag {
-          padding: 0.375rem 0.75rem;
-          background: rgba(16, 185, 129, 0.1);
-          border: 1px solid rgba(16, 185, 129, 0.3);
-          border-radius: 12px;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #10b981;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .workout-tag-more {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.2);
-          color: #a1a1aa;
-        }
-
-        .workout-footer {
-          padding-top: 1rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .workout-count {
-          font-size: 0.875rem;
-          color: #a1a1aa;
-          font-weight: 600;
-        }
-
-        /* Empty State */
-        .empty-state {
-          text-align: center;
-          padding: 4rem 2rem;
-          background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 24px;
-          width: 100%;
-        }
-
-        .empty-icon {
-          margin: 0 auto 1.5rem;
-          color: #52525b;
-        }
-
-        .empty-title {
-          font-size: 1.25rem;
-          color: #e4e4e7;
-          font-weight: 600;
-          margin-bottom: 0.5rem;
-        }
-
-        .empty-subtitle {
-          color: #71717a;
-        }
-
-        /* Modal */
-        .modal-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 1000;
-          background: rgba(0, 0, 0, 0.9);
-          backdrop-filter: blur(10px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-        }
-
-        .modal-overlay.hidden {
-          display: none;
-        }
-
-        .modal-content {
-          background: rgba(9, 9, 11, 0.95);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 24px;
-          max-width: 800px;
-          width: 100%;
-          max-height: 90vh;
-          overflow-y: auto;
-          box-shadow: 0 20px 60px rgba(16, 185, 129, 0.2);
-        }
-
-        .modal-header {
-          position: sticky;
-          top: 0;
-          background: rgba(9, 9, 11, 0.95);
-          backdrop-filter: blur(20px);
+        .exercises-header {
+          padding: 1.25rem 1.5rem;
           border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          z-index: 10;
+          flex-shrink: 0;
         }
 
-        .modal-header-info h2 {
-          font-size: 1.5rem;
-          margin-bottom: 0.75rem;
+        .exercises-header h2 {
+          font-size: 1.125rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
         }
 
-        .modal-header-meta {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          font-size: 0.875rem;
+        .exercises-subtitle {
+          font-size: 0.8125rem;
+          color: #a1a1aa;
         }
 
-        .modal-close-btn {
-          padding: 0.625rem;
-          background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+        .finish-workout-btn {
+          width: 100%;
+          padding: 0.875rem 1.5rem;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          border: none;
           border-radius: 12px;
+          font-size: 0.875rem;
+          font-weight: 700;
+          color: white;
           cursor: pointer;
           transition: all 0.3s ease;
-          color: white;
-        }
-
-        .modal-close-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .modal-body {
-          padding: 1.5rem;
-        }
-
-        .exercises-section {
-          margin-bottom: 2rem;
-        }
-
-        .exercises-title {
-          font-size: 1rem;
-          font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #e4e4e7;
-          margin-bottom: 1rem;
+          margin: 1rem 1.5rem 0;
+        }
+
+        .finish-workout-btn:hover {
+          background: linear-gradient(135deg, #dc2626, #b91c1c);
+          box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+          transform: translateY(-2px);
+        }
+
+        .finish-workout-btn:active {
+          transform: translateY(0);
         }
 
         .exercises-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
+          flex: 1;
+          overflow-y: auto;
+          padding: 1rem;
+          min-height: 0;
         }
 
-        .exercise-card {
+        .exercises-list::-webkit-scrollbar {
+          width: 5px;
+        }
+
+        .exercises-list::-webkit-scrollbar-track {
           background: rgba(255, 255, 255, 0.05);
-          backdrop-filter: blur(10px);
+        }
+
+        .exercises-list::-webkit-scrollbar-thumb {
+          background: rgba(16, 185, 129, 0.3);
+          border-radius: 3px;
+        }
+
+        .exercise-item {
+          background: rgba(255, 255, 255, 0.05);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 16px;
-          padding: 1.5rem;
+          border-radius: 14px;
+          padding: 1rem;
+          margin-bottom: 0.875rem;
           transition: all 0.3s ease;
         }
 
-        .exercise-card:hover {
-          background: rgba(255, 255, 255, 0.1);
+        .exercise-item:hover {
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .exercise-item.completed {
+          opacity: 0.5;
+          background: rgba(16, 185, 129, 0.1);
           border-color: rgba(16, 185, 129, 0.3);
         }
 
@@ -672,353 +539,196 @@ export default function HomePage({ username = "User" }: HomePageProps) {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          margin-bottom: 1rem;
+          margin-bottom: 0.65rem;
         }
 
         .exercise-name {
-          font-size: 1.125rem;
+          font-size: 0.9375rem;
           font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-
-        .exercise-stats {
-          text-align: right;
-        }
-
-        .exercise-reps {
-          font-size: 1.5rem;
-          font-weight: 700;
-        }
-
-        .exercise-reps-label {
-          font-size: 0.75rem;
-          color: #71717a;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .exercise-timing {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .timing-item-label {
-          font-size: 0.75rem;
-          color: #71717a;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
           margin-bottom: 0.25rem;
         }
 
-        .timing-item-value {
-          font-size: 1rem;
-          font-weight: 700;
-        }
-
-        .timing-item-value.started {
-          color: #06b6d4;
-        }
-
-        .timing-item-value.duration {
+        .exercise-body-part {
+          font-size: 0.6875rem;
           color: #10b981;
-        }
-
-        /* Summary */
-        .summary-card {
-          background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
-          border: 1px solid rgba(16, 185, 129, 0.3);
-          border-radius: 16px;
-          padding: 2rem;
-        }
-
-        .summary-title {
-          text-align: center;
-          font-size: 1.125rem;
-          margin-bottom: 1.5rem;
-        }
-
-        .summary-stats {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1.5rem;
-        }
-
-        .summary-stat {
-          text-align: center;
-        }
-
-        .summary-stat-value {
-          font-size: 1.75rem;
-          font-weight: 700;
-          margin-bottom: 0.5rem;
-        }
-
-        .summary-stat-label {
-          font-size: 0.75rem;
-          color: #a1a1aa;
           text-transform: uppercase;
           letter-spacing: 0.05em;
           font-weight: 600;
         }
 
+        .exercise-status {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          border: 2px solid #71717a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .exercise-status.completed {
+          background: #10b981;
+          border-color: #10b981;
+        }
+
+        .exercise-status.completed::after {
+          content: '✓';
+          color: white;
+          font-size: 0.6875rem;
+          font-weight: 700;
+        }
+
+        .exercise-details {
+          display: flex;
+          gap: 0.875rem;
+          font-size: 0.8125rem;
+          color: #a1a1aa;
+        }
+
+        .exercise-detail-item {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .exercise-detail-value {
+          font-weight: 700;
+          color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+          .exercises-panel {
+            width: 300px;
+          }
+        }
+
         @media (max-width: 768px) {
-          .hero-title-main {
-            font-size: 2rem;
+          .workout-main {
+            flex-direction: column;
           }
 
-          .workout-grid {
-            grid-template-columns: 1fr;
+          .chat-panel {
+            border-right: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
           }
 
-          .header-welcome {
-            display: none;
-          }
-
-          .header-user-name {
-            display: none;
-          }
-
-          .summary-stats {
-            grid-template-columns: 1fr;
-          }
-
-          .main-content {
-            padding: 1.5rem;
+          .exercises-panel {
+            width: 100%;
+            max-height: 35vh;
           }
         }
       `}</style>
 
-            <div className="homepage-container">
-                {/* Animated Background Orbs */}
+            <div className="workout-page-wrapper">
+                {/* Background Orbs */}
                 <div className="orb orb-1"></div>
                 <div className="orb orb-2"></div>
-                <div className="orb orb-3"></div>
 
                 {/* Header */}
-                <header className="header">
-                    <div className="header-content">
-                        <div className="header-logo">
-                            <div className="header-logo-icon glow-effect">
-                                <Dumbbell size={24} color="white" />
-                            </div>
-                            <span className="hero-title header-logo-text gradient-text">FITFRIEND</span>
-                        </div>
-                        <div className="header-user">
-                            <span className="header-welcome">Welcome,</span>
-                            <div className="header-user-avatar">
-                                {username.charAt(0).toUpperCase()}
-                            </div>
-                            <span className="header-user-name">{username}</span>
-                        </div>
+                <header className="workout-header">
+                    <button onClick={handleBack} className="back-button">
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                        <h1 className="hero-title header-title">
+                            <span className="gradient-text">ACTIVE WORKOUT</span>
+                        </h1>
                     </div>
                 </header>
 
                 {/* Main Content */}
-                <main className="main-content">
-                    {/* Hero Section */}
-                    <div className="hero-section animate-fade-in">
-                        <h1 className="hero-title hero-title-main">
-                            READY TO <span className="gradient-text">TRAIN?</span>
-                        </h1>
-                        <p className="hero-subtitle">
-                            Let's crush your fitness goals. Start a new workout or review your progress.
-                        </p>
+                <div className="workout-main">
+                    {/* Left Panel - Chat */}
+                    <div className="chat-panel">
+                        <div className="chat-header">
+                            <h2 className="hero-title gradient-text">AI COACH</h2>
+                            <p className="chat-subtitle">Your personal training assistant</p>
+                        </div>
 
-                        <button onClick={handleStartWorkout} className="start-workout-btn glow-effect">
-                            <Plus size={20} />
-                            Start New Workout
-                            <ChevronRight size={18} />
+                        <div className="chat-messages">
+                            {chatMessages.map((msg) => (
+                                <div key={msg.id} className={`chat-message ${msg.sender}`}>
+                                    <div className={`message-avatar ${msg.sender}`}>
+                                        {msg.sender === 'ai' ? (
+                                            <Dumbbell size={16} />
+                                        ) : (
+                                            'U'
+                                        )}
+                                    </div>
+                                    <div className="message-content">
+                                        <div className={`message-bubble ${msg.sender}`}>
+                                            {msg.message}
+                                        </div>
+                                        <div className="message-time">
+                                            {msg.timestamp.toLocaleTimeString('en-US', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Push to Talk */}
+                        <div className="push-to-talk-container">
+                            <button
+                                className={`push-to-talk-button ${isPushToTalk ? 'active' : ''}`}
+                                onMouseDown={handlePushToTalkPress}
+                                onMouseUp={handlePushToTalkRelease}
+                                onMouseLeave={handlePushToTalkRelease}
+                                onTouchStart={handlePushToTalkPress}
+                                onTouchEnd={handlePushToTalkRelease}
+                                disabled={!canTalk}
+                            >
+                                <Mic size={28} color="white" />
+                            </button>
+                            <p className={`push-to-talk-text ${isPushToTalk ? 'active' : ''}`}>
+                                {!canTalk ? 'AI is thinking...' : isPushToTalk ? 'Listening...' : 'Hold to Speak'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Right Panel - Exercises */}
+                    <div className="exercises-panel">
+                        <div className="exercises-header">
+                            <h2 className="hero-title gradient-text">UP NEXT</h2>
+                            <p className="exercises-subtitle">{tasks.length} exercises</p>
+                        </div>
+
+                        <button onClick={handleFinishWorkout} className="finish-workout-btn">
+                            Finish Workout
                         </button>
-                    </div>
 
-                    {/* Workout History */}
-                    <div>
-                        <div className="section-header">
-                            <h2 className="hero-title section-title gradient-text">YOUR WORKOUTS</h2>
-                            <div className="section-count">
-                                <TrendingUp size={16} />
-                                <span>{workouts.length} {workouts.length === 1 ? 'workout' : 'workouts'}</span>
-                            </div>
+                        <div className="exercises-list">
+                            {tasks.map((task, index) => (
+                                <div key={index} className="exercise-item">
+                                    <div className="exercise-header">
+                                        <div>
+                                            <div className="exercise-name">{task.exercise}</div>
+                                            <div className="exercise-body-part">{task.bodyPart}</div>
+                                        </div>
+                                        <div className="exercise-status"></div>
+                                    </div>
+                                    <div className="exercise-details">
+                                        <div className="exercise-detail-item">
+                                            <span className="exercise-detail-value">{task.sets}</span>
+                                            <span>sets</span>
+                                        </div>
+                                        <span>×</span>
+                                        <div className="exercise-detail-item">
+                                            <span className="exercise-detail-value">{task.reps}</span>
+                                            <span>reps</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-
-                        {workouts.length === 0 ? (
-                            <div className="empty-state animate-fade-in">
-                                <div className="empty-icon">
-                                    <TrendingUp size={60} />
-                                </div>
-                                <p className="empty-title">No workouts yet</p>
-                                <p className="empty-subtitle">Start your first workout to see it here!</p>
-                            </div>
-                        ) : (
-                            <div className="workout-grid">
-                                {workouts.map((workout, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => handleWorkoutClick(workout)}
-                                        className="workout-card animate-fade-in"
-                                        style={{ animationDelay: `${index * 0.1}s` }}
-                                    >
-                                        {/* Action Buttons */}
-                                        <div className="workout-actions">
-                                            <button
-                                                className="action-btn edit"
-                                                onClick={(e) => handleEditWorkout(workout, e)}
-                                                title="Edit Workout"
-                                            >
-                                                <Pencil size={16} color="#10b981" />
-                                            </button>
-                                            <button
-                                                className="action-btn delete"
-                                                onClick={(e) => handleDeleteWorkout(workout, e)}
-                                                title="Delete Workout"
-                                            >
-                                                <Trash2 size={16} color="#ef4444" />
-                                            </button>
-                                        </div>
-
-                                        <div className="workout-visual">
-                                            <Dumbbell size={60} color="rgba(16, 185, 129, 0.4)" style={{ position: 'relative', zIndex: 1 }} />
-                                        </div>
-
-                                        <div className="workout-info">
-                                            <div className="workout-meta">
-                                                <div className="workout-date">
-                                                    <Calendar size={14} />
-                                                    <span>{formatDate(workout.date)}</span>
-                                                </div>
-                                                <div className="workout-duration">
-                                                    <Clock size={14} />
-                                                    <span>{formatTime(getTotalDuration(workout))}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="workout-tags">
-                                                {getUniqueBodyParts(workout).slice(0, 3).map((bodyPart, i) => (
-                                                    <span key={i} className="workout-tag">
-                                                        {bodyPart}
-                                                    </span>
-                                                ))}
-                                                {getUniqueBodyParts(workout).length > 3 && (
-                                                    <span className="workout-tag workout-tag-more">
-                                                        +{getUniqueBodyParts(workout).length - 3}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <div className="workout-footer">
-                                                <p className="workout-count">
-                                                    {workout.task.length} {workout.task.length === 1 ? 'Exercise' : 'Exercises'}
-                                                </p>
-                                                <ChevronRight size={18} color="rgba(16, 185, 129, 0.5)" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
-                </main>
-
-                {/* Workout Detail Modal */}
-                <div
-                    className={`modal-overlay ${selectedWorkout ? '' : 'hidden'}`}
-                    onClick={handleCloseModal}
-                >
-                    {selectedWorkout && (
-                        <div
-                            className="modal-content animate-zoom-in"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {/* Modal Header */}
-                            <div className="modal-header">
-                                <div className="modal-header-info">
-                                    <h2 className="hero-title gradient-text">WORKOUT DETAILS</h2>
-                                    <div className="modal-header-meta">
-                                        <div className="workout-date">
-                                            <Calendar size={14} />
-                                            <span>{formatDate(selectedWorkout.date)}</span>
-                                        </div>
-                                        <div className="workout-duration">
-                                            <Clock size={14} />
-                                            <span>{formatTime(getTotalDuration(selectedWorkout))}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <button onClick={handleCloseModal} className="modal-close-btn">
-                                    <X size={20} />
-                                </button>
-                            </div>
-
-                            {/* Modal Body */}
-                            <div className="modal-body">
-                                {/* Exercise List */}
-                                <div className="exercises-section">
-                                    <h3 className="exercises-title">Exercises</h3>
-                                    <div className="exercises-list">
-                                        {selectedWorkout.task.map((task, index) => (
-                                            <div key={index} className="exercise-card">
-                                                <div className="exercise-header">
-                                                    <div>
-                                                        <h4 className="exercise-name">{task.exercise}</h4>
-                                                        <span className="workout-tag">{task.bodyPart}</span>
-                                                    </div>
-                                                    <div className="exercise-stats">
-                                                        <div className="exercise-reps gradient-text">
-                                                            {task.sets} × {task.reps}
-                                                        </div>
-                                                        <div className="exercise-reps-label">Sets × Reps</div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="exercise-timing">
-                                                    <div>
-                                                        <div className="timing-item-label">Time Started</div>
-                                                        <div className="timing-item-value started">{formatTime(task.timeStarted)}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="timing-item-label">Duration</div>
-                                                        <div className="timing-item-value duration">{formatTime(task.timeTaken)}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Summary Stats */}
-                                <div className="summary-card glow-effect">
-                                    <h3 className="hero-title summary-title gradient-text">
-                                        WORKOUT SUMMARY
-                                    </h3>
-                                    <div className="summary-stats">
-                                        <div className="summary-stat">
-                                            <div className="summary-stat-value gradient-text">
-                                                {selectedWorkout.task.length}
-                                            </div>
-                                            <div className="summary-stat-label">Exercises</div>
-                                        </div>
-                                        <div className="summary-stat">
-                                            <div className="summary-stat-value gradient-text">
-                                                {selectedWorkout.task.reduce((sum, task) => sum + task.sets, 0)}
-                                            </div>
-                                            <div className="summary-stat-label">Total Sets</div>
-                                        </div>
-                                        <div className="summary-stat">
-                                            <div className="summary-stat-value gradient-text">
-                                                {formatTime(getTotalDuration(selectedWorkout))}
-                                            </div>
-                                            <div className="summary-stat-label">Duration</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
-        </div>
+        </>
     );
 }
