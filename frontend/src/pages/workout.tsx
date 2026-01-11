@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
 
 // TypeScript Interfaces
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+    SpeechRecognition: any;
+  }
+}
+
 interface ChatMessage {
   id: number;
   sender: 'user' | 'ai';
@@ -23,37 +30,13 @@ interface WorkoutPageProps {
 
 export default function WorkoutPage({ onBack }: WorkoutPageProps) {
   const [isPushToTalk, setIsPushToTalk] = useState<boolean>(false);
-  const [chatMessages] = useState<ChatMessage[]>([
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 1,
       sender: 'ai',
-      message: "Hey! Ready to crush this workout? Let's start with some bench press!",
+      message: "Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!",
       timestamp: new Date()
     },
-    {
-      id: 2,
-      sender: 'user',
-      message: "Yes, I'm ready!",
-      timestamp: new Date()
-    },
-    {
-      id: 3,
-      sender: 'ai',
-      message: "Great! Let's do 4 sets of 12 reps. Take your time and focus on form.",
-      timestamp: new Date()
-    },
-    {
-      id: 4,
-      sender: 'user',
-      message: "How much rest between sets?",
-      timestamp: new Date()
-    },
-    {
-      id: 5,
-      sender: 'ai',
-      message: "Take 90 seconds between sets. I'll let you know when it's time to start again!",
-      timestamp: new Date()
-    }
   ]);
 
   const [exercises] = useState<Exercise[]>([
@@ -68,14 +51,47 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
   // Event Handlers
   const handlePushToTalkPress = () => {
     setIsPushToTalk(true);
-    console.log('Push to talk activated');
-    // Add your voice recording logic here
+    
+    // Speech Recognition Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported in this browser");
+      setIsPushToTalk(false);
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: prev.length + 1,
+          sender: 'user',
+          message: transcript,
+          timestamp: new Date()
+        }
+      ]);
+    };
+
+    recognition.onend = () => {
+      setIsPushToTalk(false);
+    };
+
+    recognition.onerror = () => {
+      setIsPushToTalk(false);
+    };
+
+    recognition.start();
   };
 
   const handlePushToTalkRelease = () => {
     setIsPushToTalk(false);
-    console.log('Push to talk released');
-    // Add your voice recording stop logic here
   };
 
   const handleBack = () => {
