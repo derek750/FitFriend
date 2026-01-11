@@ -16,9 +16,14 @@ Frontend
 
 # /backend/.env
 PORT = 3000
+
 GOOGLE_CLIENT_ID="Google Auth" (allow ips)
+
 GOOGLE_CLIENT_SECRET="Client Secret"
+
 MONGO_URI=mongodb api key must be accessible from ip
+
 GEMINI_KEY=gemini key
+
 ELEVENLABS_API_KEY=eleven labs key
 
