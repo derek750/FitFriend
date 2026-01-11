@@ -1,19 +1,19 @@
 import mongoose, { Schema } from "mongoose";
 
-export type Task = {
-  bodyPart: string;
-  exercise: string;
-  timeStarted: number;
-  timeTaken: number;
-  reps: number;
-  sets: number;
-};
-
-export interface Workout {
-  task: Task[]; 
-  date: Date;     
-// need id
+export type Workout = {
+    task: Task[],
+    date: Date
 }
+
+export type Task = {
+    bodyPart: string,
+    exercise: string,
+    timeStarted: number,
+    timeTaken: number,
+    reps: number,
+    sets: number,
+}
+
 
 const TaskSchema = new Schema<Task>(
   {
@@ -30,12 +30,12 @@ const TaskSchema = new Schema<Task>(
 const WorkoutSchema = new Schema<Workout>(
   {
     task: {
-      type: [TaskSchema], // ✅ array of tasks
+      type: [TaskSchema], 
       required: true,
     },
     date: {
       type: Date,
-      default: Date.now, // ✅ auto timestamp
+      default: Date.now, 
     },
   },
   // need an id
