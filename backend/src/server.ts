@@ -13,6 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 import mongoRouter from "./routes/mongoRoute";
 import googleRouter from "./routes/googleRoute";
 import geminiRouter from "./routes/geminiRoute";
+import elevenLabsRouter from "./routes/elevenlabsRoute";
 
 const app = express();
 const PORT = process.env.PORT;
@@ -45,11 +46,11 @@ app.use(passport.session());
 mongoose.connect(process.env.MONGO_URI!, {})
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.error('MongoDB connection error:', err));
-
     
 app.use("/google", googleRouter)
 app.use("/database", mongoRouter)
 app.use('/gemini', geminiRouter);
+app.use('/elevenlabs', elevenLabsRouter)
 
 export const AI = new GoogleGenAI({ apiKey: process.env.GEMINI_KEY });
 

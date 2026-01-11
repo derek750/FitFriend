@@ -4,6 +4,7 @@ import type { ChatMessage } from '../types/chat';
 import type { AIResponse } from '../types/gemini';
 import * as Gemini from '../api/gemini'; 
 import type { Task } from '../types/workout';
+import * as ElevenLabs from '../api/elevenlabs'
 
 declare global {
     interface Window {
@@ -75,6 +76,9 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                         timestamp: new Date(),
                     },
                 ]);
+                console.log(res.response)
+                // after ai has responded
+                ElevenLabs.speak(res.response);
 
                 if(res.exercise) {
                     setTasks(prev => [
