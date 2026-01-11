@@ -70,16 +70,16 @@ export async function deleteWorkout(workoutId: string): Promise<void> {
     }
 }
 
-export async function getWorkout(id: string) {
+export async function getWorkout(id: string) : Promise<Workout> {
     const res = await fetch(`${API_URL}/workouts/${id}`)
     return res.json()
 }
 
-export async function updateWorkout(id: string, workout: any) {
+export async function updateWorkout(id: string, workoutUpdate: Workout) {
     const res = await fetch(`${API_URL}/workouts/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workout),
+        body: JSON.stringify(workoutUpdate),
     })
 
     return res.json()

@@ -1,5 +1,6 @@
 export type Workout = {
-    task: Task[],
+    userId: string,
+    tasks: Task[],
     date: Date
 }
 
