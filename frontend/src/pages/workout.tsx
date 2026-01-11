@@ -100,6 +100,16 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                 // after ai has responded
                 ElevenLabs.speak(res.response);
 
+                // previous was declined
+                if (res.declined) {
+                    allTasks.pop();
+                    const newWorkout: Workout = {
+                        ...currentWorkout,       // copy existing properties
+                        tasks: allTasks, // add the new task
+                    };
+                    Mongo.updateWorkout(id, newWorkout);
+                }
+
                 if (!res.isNotTask) {
                     if (res.exercise) {
                         const newTask: Task = {
