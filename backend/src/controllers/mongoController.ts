@@ -14,6 +14,25 @@ export async function getUserWorkouts(req: AuthRequest, res: Response) {
     }
 }
 
+export async function getWorkoutById(req: AuthRequest, res: Response) {
+    try {
+        const userId = req.user?._id;
+        const workoutId = req.params.id;
+
+        // Find the workout by id and make sure it belongs to the logged-in user
+        const workout = await Workout.findOne({ _id: workoutId, userId });
+
+        if (!workout) {
+            return res.status(404).json({ message: "Workout not found" });
+        }
+
+        res.json(workout);
+    } catch (error) {
+        console.error("Error fetching workout:", error);
+        res.status(500).json({ message: "Error fetching workout", error });
+    }
+}
+
 export async function createTask(req: AuthRequest, res: Response) {
     try {
         const { workoutId } = req.params;

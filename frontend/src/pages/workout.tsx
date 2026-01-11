@@ -111,22 +111,12 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                             timeTaken: 0,
                             completed: false,
                         };
-
-                        setWorkout(prev => {
-                            if (!prev) return prev;
-
-                            const updatedWorkout: Workout = {
-                                ...prev,
-                                tasks: [...prev.tasks, newTask],
-                                date: new Date(),
-                            };
-
-                            // Persist the FULL updated workout to MongoDB
-                            Mongo.updateWorkout(id, updatedWorkout);
-
-                            // Update React state with the same object
-                            return updatedWorkout;
-                        });
+                        allTasks.push(newTask);
+                        const newWorkout: Workout = {
+                            ...currentWorkout,       // copy existing properties
+                            tasks: allTasks, // add the new task
+                        };
+                        Mongo.updateWorkout(id, newWorkout);
                     }
                 }
                 // finish last exercise --> mark complete
@@ -162,10 +152,16 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
 
     const handleFinishWorkout = () => {
         console.log('Finish workout clicked');
-        console.log('Tasks completed:', allTasks);
+        console.log('Tasks completed:', currentWorkout);
+        console.log(allTasks)
         // Add your finish workout logic here
-        navigate(`/homepage`);
+        const newWorkout: Workout = {
+            ...currentWorkout,       // copy existing properties
+            tasks: allTasks, // add the new task
+        };
+        (Mongo.updateWorkout(id, newWorkout));
         // For example: navigate back, save workout to database, etc.
+        navigate(`/homepage`);
     };
 
     return (

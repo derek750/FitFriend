@@ -10,7 +10,7 @@ mongoRouter.get("/getAllWorkouts", Mongo.getUserWorkouts);
 mongoRouter.post("/createWorkout", Mongo.createWorkout);
 mongoRouter.put("/workouts/:id", Mongo.updateWorkout);
 mongoRouter.delete("/deleteWorkout/:id", Mongo.deleteWorkout);
-
+mongoRouter.get("/getWorkout/:id", Mongo.getWorkoutById);
 mongoRouter.post("/workouts/:workoutId/tasks", Mongo.createTask);
 mongoRouter.delete("/workouts/:workoutId/tasks/:taskIndex", Mongo.deleteTask);
 
