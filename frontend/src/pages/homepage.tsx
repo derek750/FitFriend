@@ -118,12 +118,12 @@ export default function HomePage({ username = "User" }: HomePageProps) {
 
 
    const getTotalDuration = (workout: Workout): number => {
-       return workout.task.reduce((total, task) => total + task.timeTaken, 0);
+       return workout.tasks.reduce((total, task) => total + task.timeTaken, 0);
    };
 
 
    const getUniqueBodyParts = (workout: Workout): string[] => {
-       const bodyParts = workout.task.map(task => task.bodyPart);
+       const bodyParts = workout.tasks.map(task => task.bodyPart);
        return Array.from(new Set(bodyParts));
    };
 
@@ -1022,7 +1022,7 @@ export default function HomePage({ username = "User" }: HomePageProps) {
 
                                            <div className="workout-footer">
                                                <p className="workout-count">
-                                                   {workout.task.length} {workout.task.length === 1 ? 'Exercise' : 'Exercises'}
+                                                   {workout.tasks.length} {workout.tasks.length === 1 ? 'Exercise' : 'Exercises'}
                                                </p>
                                                <ChevronRight size={18} color="rgba(16, 185, 129, 0.5)" />
                                            </div>
@@ -1072,7 +1072,7 @@ export default function HomePage({ username = "User" }: HomePageProps) {
                                <div className="exercises-section">
                                    <h3 className="exercises-title">Exercises</h3>
                                    <div className="exercises-list">
-                                       {selectedWorkout.task.map((task, index) => (
+                                       {selectedWorkout.tasks.map((task, index) => (
                                            <div key={index} className="exercise-card">
                                                <div className="exercise-header">
                                                    <div>
@@ -1112,13 +1112,13 @@ export default function HomePage({ username = "User" }: HomePageProps) {
                                    <div className="summary-stats">
                                        <div className="summary-stat">
                                            <div className="summary-stat-value gradient-text">
-                                               {selectedWorkout.task.length}
+                                               {selectedWorkout.tasks.length}
                                            </div>
                                            <div className="summary-stat-label">Exercises</div>
                                        </div>
                                        <div className="summary-stat">
                                            <div className="summary-stat-value gradient-text">
-                                               {selectedWorkout.task.reduce((sum, task) => sum + task.sets, 0)}
+                                               {selectedWorkout.tasks.reduce((sum, task) => sum + task.sets, 0)}
                                            </div>
                                            <div className="summary-stat-label">Total Sets</div>
                                        </div>

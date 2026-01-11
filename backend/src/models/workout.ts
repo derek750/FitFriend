@@ -1,8 +1,9 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 export type Workout = {
-    task: Task[],
-    date: Date
+    userId: string,
+    tasks: Task[],
+    date: Date,
 }
 
 export type Task = {
@@ -29,7 +30,12 @@ const TaskSchema = new Schema<Task>(
 
 const WorkoutSchema = new Schema<Workout>(
   {
-    task: {
+    userId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    tasks: {
       type: [TaskSchema], 
       required: true,
     },
@@ -38,7 +44,7 @@ const WorkoutSchema = new Schema<Workout>(
       default: Date.now, 
     },
   },
-  // need an id
+
 );
 
 export default mongoose.model<Workout>("Workout", WorkoutSchema);

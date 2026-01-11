@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dumbbell, Mic, ArrowLeft } from 'lucide-react';
 import type { ChatMessage } from '../types/chat';
 import type { AIResponse } from '../types/gemini';
+import type { Task, Workout } from '../types/workout';
 import * as Gemini from '../api/gemini';
-import type { Task } from '../types/workout';
-import * as ElevenLabs from '../api/elevenlabs'
+import * as ElevenLabs from '../api/elevenlabs';
+import * as Mongo from '../api/mongo';
+
+import { useParams, useNavigate } from "react-router-dom";
 
 declare global {
     interface Window {
@@ -18,17 +21,34 @@ interface WorkoutPageProps {
 }
 
 export default function WorkoutPage({ onBack }: WorkoutPageProps) {
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+
+    const [currentWorkout, setWorkout] = useState<Workout | null>(null);
     const [isPushToTalk, setIsPushToTalk] = useState(false);
     const [canTalk, setCanTalk] = useState(true);
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [allTasks, setTasks] = useState<Task[]>([]);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
         {
             id: 1,
             sender: 'ai',
-            message: 'Hey User! What do you wanna work on today? Are you at the gym, or at home? Let me know!',
+            message: 'Hey User! What do you wanna work on today?',
             timestamp: new Date(),
         },
     ]);
+
+    useEffect(() => {
+        if (!id) return;
+        Mongo.getWorkout(id).then(setWorkout);
+    }, [id]);
+
+    if (!id) {
+        return
+    }
+
+    if (!currentWorkout) {
+        return
+    }
 
     const handlePushToTalkPress = async () => {
         if (!canTalk) return;
@@ -82,24 +102,32 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
 
                 if (!res.isNotTask) {
                     if (res.exercise) {
-                        setTasks(prev => [
-                            ...prev,
-                            {
-                                exercise: res.exercise,
-                                sets: res.sets,
-                                reps: res.reps,
-                                bodyPart: res.muscle,
-                                timeStarted: 0,
-                                timeTaken: 0,
-                                completed: false,
-                            },
-                        ]);
+                        const newTask: Task = {
+                            exercise: res.exercise,
+                            sets: res.sets,
+                            reps: res.reps,
+                            bodyPart: res.muscle,
+                            timeStarted: 0,
+                            timeTaken: 0,
+                            completed: false,
+                        };
+                        allTasks.push(newTask);
+                        const newWorkout: Workout = {
+                            ...currentWorkout,       // copy existing properties
+                            tasks: allTasks, // add the new task
+                        };
+                        Mongo.updateWorkout(id, newWorkout);
                     }
                 }
                 // finish last exercise --> mark complete
                 // set time taken
-                const previousTask: Task | null = tasks.length > 0 ? tasks[tasks.length - 1] : null;
-                if (previousTask) previousTask.completed = true;
+                setTasks(prev =>
+                    prev.map((task, i) =>
+                        i === prev.length - 1
+                            ? { ...task, completed: true }
+                            : task
+                    )
+                );
 
             } catch (err) {
                 console.error(err);
@@ -124,9 +152,16 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
 
     const handleFinishWorkout = () => {
         console.log('Finish workout clicked');
-        console.log('Tasks completed:', tasks);
+        console.log('Tasks completed:', currentWorkout);
+        console.log(allTasks)
         // Add your finish workout logic here
+        const newWorkout: Workout = {
+            ...currentWorkout,       // copy existing properties
+            tasks: allTasks, // add the new task
+        };
+        (Mongo.updateWorkout(id, newWorkout));
         // For example: navigate back, save workout to database, etc.
+        navigate(`/homepage`);
     };
 
     return (
@@ -716,11 +751,11 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                     <div className="exercises-panel">
                         <div className="exercises-header">
                             <h2 className="hero-title gradient-text">UP NEXT</h2>
-                            <p className="exercises-subtitle">{tasks.length} exercises</p>
+                            <p className="exercises-subtitle">{allTasks.length} exercises</p>
                         </div>
 
                         <div className="exercises-list">
-                            {tasks.map((task, index) => (
+                            {allTasks.map((task, index) => (
                                 <div key={index} className="exercise-item">
                                     <div className="exercise-header">
                                         <div>
@@ -745,7 +780,7 @@ export default function WorkoutPage({ onBack }: WorkoutPageProps) {
                         </div>
 
                         {/* Finish Workout Button - Only shows when tasks exist */}
-                        {tasks.length > 0 ? (
+                        {allTasks.length > 0 ? (
                             <div className="finish-workout-container">
                                 <button onClick={handleFinishWorkout} className="finish-workout-btn">
                                     Finish Workout
