@@ -10,7 +10,6 @@ export const startGoogleAuth = (req: AuthRequest, res: Response) => {
     passport.authenticate('google', { scope: ['profile', 'email'] })(req, res);
 };
 
-
 export const handleGoogleCallback = passport.authenticate('google', {
     failureRedirect: 'http://localhost:5001/#/login',
     successRedirect: 'http://localhost:5001/#/homepage', // must be same as host
